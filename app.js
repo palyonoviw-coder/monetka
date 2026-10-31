@@ -1757,30 +1757,81 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'n' || e.key === 'т' || e.key === '+') { e.preventDefault(); txModal(); }
 });
 
-// Свайп влево/вправо на телефоне — соседний раздел нижнего меню.
+// Свайп влево/вправо на телефоне: экран едет за пальцем, рядом выезжает соседний раздел нижнего меню.
 // Не срабатывает в открытом окне, в полях ввода и в лентах с горизонтальной прокруткой.
 {
-  let sx = 0, sy = 0, st = 0, tracking = false;
   const main = $('#main');
+  let sx = 0, sy = 0, st = 0, dx = 0, mode = '', target = null, ghost = null, busy = false;
+  const views = () => [...document.querySelectorAll('.nav-item')].map((b) => b.dataset.view);
+  const neighbor = (dir) => views()[views().indexOf(ui.view) + dir];
+  const move = (x, animate) => {
+    const w = innerWidth;
+    const tr = animate ? 'transform .24s cubic-bezier(.2,.7,.3,1)' : 'none';
+    main.style.transition = tr;
+    main.style.transform = `translateX(${x}px)`;
+    if (ghost) {
+      ghost.style.transition = tr;
+      ghost.style.transform = `translateX(${x + (x < 0 ? w : -w)}px)`;
+    }
+  };
+  const setTarget = (dir) => {
+    const v = neighbor(dir);
+    if (v === target) return;
+    target = v;
+    ghost?.remove();
+    ghost = null;
+    if (!v) return;
+    ghost = document.createElement('div');
+    ghost.className = 'swipe-ghost';
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.innerHTML = VIEWS[v]();
+    document.body.append(ghost);
+  };
+  const finish = (commit) => {
+    busy = true;
+    const w = innerWidth;
+    move(commit ? (dx < 0 ? -w : w) : 0, true);
+    setTimeout(() => {
+      if (commit) {
+        ui.view = target;
+        window.scrollTo(0, 0);
+        render();
+      }
+      main.style.transition = main.style.transform = '';
+      ghost?.remove();
+      ghost = null; target = null; busy = false;
+    }, 250);
+  };
+
   main.addEventListener('touchstart', (e) => {
-    tracking = e.touches.length === 1 && !modal.open && innerWidth <= 760
-      && !e.target.closest('input, select, textarea, .seg.scroll, .cat-grid, .icon-grid, .chips');
-    if (!tracking) return;
-    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+    mode = '';
+    if (busy || e.touches.length !== 1 || modal.open || innerWidth > 760
+      || e.target.closest('input, select, textarea, .seg.scroll, .cat-grid, .icon-grid, .chips')) { mode = 'off'; return; }
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); dx = 0;
   }, { passive: true });
-  main.addEventListener('touchend', (e) => {
-    if (!tracking) return;
-    tracking = false;
-    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
-    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - st > 700) return;
-    const views = [...document.querySelectorAll('.nav-item')].map((b) => b.dataset.view);
-    const next = views[views.indexOf(ui.view) + (dx < 0 ? 1 : -1)];
-    if (!next) return;
-    go(next);
-    main.classList.remove('slide-l', 'slide-r');
-    void main.offsetWidth;
-    main.classList.add(dx < 0 ? 'slide-l' : 'slide-r');
-  }, { passive: true });
+
+  main.addEventListener('touchmove', (e) => {
+    if (mode === 'off' || mode === 'v') return;
+    const x = e.touches[0].clientX - sx, y = e.touches[0].clientY - sy;
+    if (!mode) {
+      if (Math.abs(x) < 10 && Math.abs(y) < 10) return;
+      mode = Math.abs(x) > Math.abs(y) * 1.2 ? 'h' : 'v';
+      if (mode === 'v') return;
+    }
+    e.preventDefault();
+    setTarget(x < 0 ? 1 : -1);
+    dx = target ? x : x * 0.25; // у крайних разделов — лёгкое сопротивление
+    move(dx, false);
+  }, { passive: false });
+
+  const end = () => {
+    if (mode !== 'h') { mode = ''; return; }
+    mode = '';
+    const fast = Math.abs(dx) / Math.max(Date.now() - st, 1) > 0.5;
+    finish(Boolean(target) && (Math.abs(dx) > innerWidth * 0.3 || (fast && Math.abs(dx) > 40)));
+  };
+  main.addEventListener('touchend', end);
+  main.addEventListener('touchcancel', end);
 }
 
 /* ============================== Старт ============================== */

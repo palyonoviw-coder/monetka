@@ -23,13 +23,14 @@ const Sync = (() => {
   const SCALARS = ['settings'];
   const TOMBSTONE_TTL = 180 * 864e5;
 
-  // Настройки этого устройства (не синхронизируются): Client ID, факт подключения, адрес аккаунта, id файла.
+  // Настройки этого устройства (не синхронизируются): Client ID, факт подключения, адрес аккаунта, id файла,
+  // а также последний токен доступа — чтобы после перезапуска приложения не входить заново, пока он действует (час).
   let conf = {};
   try { conf = JSON.parse(localStorage.getItem(CONF_KEY)) || {}; } catch { /* хранилище недоступно */ }
   const saveConf = () => { try { localStorage.setItem(CONF_KEY, JSON.stringify(conf)); } catch { /* ignore */ } };
   const clientId = () => conf.clientId || window.MONETKA_GOOGLE_CLIENT_ID || '';
 
-  let token = null, tokenExp = 0, gisPromise = null;
+  let token = conf.token || null, tokenExp = conf.tokenExp || 0, gisPromise = null;
   let index = new Map(), scalarSig = '';
   let timer = null, busy = false, again = false;
   let status = 'idle', lastError = '';
@@ -125,6 +126,9 @@ const Sync = (() => {
           if (r.error) { reject(new Error(r.error_description || r.error)); return; }
           token = r.access_token;
           tokenExp = Date.now() + Number(r.expires_in || 3600) * 1000;
+          conf.token = token;
+          conf.tokenExp = tokenExp;
+          saveConf();
           resolve(token);
         },
         error_callback: (e) => reject(new Error(e?.type === 'popup_closed' ? 'Окно входа закрыто' : e?.type === 'popup_failed_to_open' ? 'Браузер заблокировал окно входа' : e?.message || 'Ошибка входа')),
@@ -137,7 +141,7 @@ const Sync = (() => {
 
   async function api(url, opts = {}) {
     const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}` } });
-    if (r.status === 401) { token = null; throw new Error('auth'); }
+    if (r.status === 401) { token = null; tokenExp = 0; delete conf.token; delete conf.tokenExp; saveConf(); throw new Error('auth'); }
     if (!r.ok) {
       const err = new Error(`Google Диск ответил ${r.status}: ${(await r.text()).slice(0, 160)}`);
       err.status = r.status;
@@ -189,7 +193,7 @@ const Sync = (() => {
     document.querySelectorAll('[data-sync-slot="card"]').forEach((el) => { el.innerHTML = card(); });
   }
 
-  async function syncNow(interactive = false) {
+  async function syncNow(interactive = false, quiet = false) {
     if (busy) { again = true; return; }
     if (!conf.connected && !interactive) return;
     busy = true;
@@ -222,9 +226,9 @@ const Sync = (() => {
       saveConf();
       status = 'ok';
       render();
-      if (interactive) toast('Данные синхронизированы с Google Диском');
+      if (interactive && !quiet) toast('Данные синхронизированы с Google Диском');
     } catch (e) {
-      if (e.message === 'auth') status = 'auth';
+      if (e.message === 'auth') { status = 'auth'; resumeOnClick(); }
       else {
         lastError = e.message;
         status = 'error';
@@ -240,7 +244,7 @@ const Sync = (() => {
   /** Вызывается после каждого сохранения: отправляет изменения через несколько секунд. */
   function schedule() {
     if (!conf.connected) return;
-    if (!tokenValid()) { if (status !== 'syncing') setStatus('auth'); return; }
+    if (!tokenValid()) { if (status !== 'syncing') setStatus('auth'); resumeOnClick(); return; }
     clearTimeout(timer);
     timer = setTimeout(() => syncNow(false), 3000);
   }
@@ -330,9 +334,29 @@ const Sync = (() => {
       </div>`;
   }
 
+  // Окно Google можно открыть только по действию пользователя, поэтому истёкший вход
+  // восстанавливаем при первом нажатии в приложении. Google уже знает аккаунт — окно закроется само.
+  let resumeArmed = false;
+  function resumeOnClick() {
+    if (resumeArmed) return;
+    resumeArmed = true;
+    const resume = (e) => {
+      if (e.target.closest?.('[data-act^="sync"]')) return;
+      document.removeEventListener('click', resume, true);
+      resumeArmed = false;
+      if (conf.connected && !tokenValid()) syncNow(true, true);
+    };
+    document.addEventListener('click', resume, true);
+  }
+
   function init() {
     reindex(db);
-    if (conf.connected) status = 'auth';
+    if (conf.connected) {
+      status = 'auth';
+      if (tokenValid()) syncNow(false);
+      else resumeOnClick();
+      if (clientId()) loadGis().catch(() => {}); // заранее, чтобы окно входа открылось сразу по нажатию
+    }
     // Пока токен действует — подтягиваем изменения с других устройств.
     setInterval(() => { if (conf.connected && tokenValid()) syncNow(false); }, 120_000);
     document.addEventListener('visibilitychange', () => {

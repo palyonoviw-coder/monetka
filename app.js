@@ -286,10 +286,12 @@ function txDelta(t) {
   return 0;
 }
 
+/** Остатки на счетах на сегодня: операции с будущей датой ещё не списаны и не зачислены. */
 function balances() {
   const b = Object.fromEntries(db.accounts.map((a) => [a.id, Number(a.initial) || 0]));
+  const now = today();
   for (const t of db.transactions) {
-    if (!(t.accountId in b)) continue;
+    if (!(t.accountId in b) || t.date > now) continue;
     if (t.type === 'income') b[t.accountId] += t.amount;
     else if (t.type === 'expense') b[t.accountId] -= t.amount;
     else {
@@ -595,6 +597,7 @@ function txRow(t) {
     cls = t.type === 'income' ? 'pos' : 'neg';
   }
   const tags = tagsHtml(t);
+  if (t.date > today()) { sub = `Запланировано · ${sub}`; cls = 'muted'; }
   return `<li class="row" data-act="edit-tx" data-id="${t.id}">${b}
     <span class="mid"><div class="t">${esc(title)}${t.recurringId ? ` <span class="muted" title="Регулярный платёж">${icon('repeat')}</span>` : ''}</div><div class="s">${esc(sub)}</div>${tags ? `<div class="tags">${tags}</div>` : ''}</span>
     <span class="amt num ${cls}">${esc(amt)}</span></li>`;

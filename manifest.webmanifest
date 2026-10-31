@@ -1,0 +1,13 @@
+{
+  "name": "Монетка — учёт финансов",
+  "short_name": "Монетка",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f7",
+  "theme_color": "#3b5bdb",
+  "lang": "ru",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Монетка — учёт финансов</title>
+  <meta name="description" content="Личные финансы: счета, операции, бюджеты, цели, напоминания и отчёты. Данные хранятся только на вашем устройстве.">
+  <meta name="theme-color" content="#3b5bdb">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <nav class="nav" aria-label="Разделы">
+      <div class="brand"><img src="icon.svg" alt="" width="30" height="30"><span>Монетка</span></div>
+      <button class="nav-item" data-view="overview"><span class="ni" data-icon="layout-dashboard"></span><span>Обзор</span></button>
+      <button class="nav-item" data-view="transactions"><span class="ni" data-icon="list-ordered"></span><span>Записи</span></button>
+      <button class="nav-item" data-view="budgets"><span class="ni" data-icon="target"></span><span>Планы</span></button>
+      <button class="nav-item" data-view="stats"><span class="ni" data-icon="chart-pie"></span><span>Отчёты</span></button>
+      <button class="nav-item" data-view="more"><span class="ni" data-icon="ellipsis"></span><span>Ещё</span></button>
+    </nav>
+    <main id="main" class="main" tabindex="-1"></main>
+    <button class="fab" id="fab" aria-label="Добавить операцию"></button>
+  </div>
+  <dialog id="modal" class="modal"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="config.js"></script>
+  <script src="icons.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1757,6 +1757,32 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'n' || e.key === 'т' || e.key === '+') { e.preventDefault(); txModal(); }
 });
 
+// Свайп влево/вправо на телефоне — соседний раздел нижнего меню.
+// Не срабатывает в открытом окне, в полях ввода и в лентах с горизонтальной прокруткой.
+{
+  let sx = 0, sy = 0, st = 0, tracking = false;
+  const main = $('#main');
+  main.addEventListener('touchstart', (e) => {
+    tracking = e.touches.length === 1 && !modal.open && innerWidth <= 760
+      && !e.target.closest('input, select, textarea, .seg.scroll, .cat-grid, .icon-grid, .chips');
+    if (!tracking) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+  }, { passive: true });
+  main.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - st > 700) return;
+    const views = [...document.querySelectorAll('.nav-item')].map((b) => b.dataset.view);
+    const next = views[views.indexOf(ui.view) + (dx < 0 ? 1 : -1)];
+    if (!next) return;
+    go(next);
+    main.classList.remove('slide-l', 'slide-r');
+    void main.offsetWidth;
+    main.classList.add(dx < 0 ? 'slide-l' : 'slide-r');
+  }, { passive: true });
+}
+
 /* ============================== Старт ============================== */
 
 document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });

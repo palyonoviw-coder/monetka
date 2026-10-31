@@ -4,7 +4,6 @@
 
 const STORE_KEY = 'monetka.v1';
 const COLORS = ['#f03e3e', '#e64980', '#be4bdb', '#7950f2', '#4c6ef5', '#228be6', '#15aabf', '#12b886', '#40c057', '#82c91e', '#fab005', '#fd7e14', '#a9672f', '#868e96'];
-const CURRENCIES = ['RUB', 'USD', 'EUR', 'KZT', 'BYN', 'UAH', 'GBP', 'CNY', 'TRY', 'GEL', 'AMD', 'UZS'];
 const FREQ = { none: 'Не повторять', daily: 'Каждый день', weekly: 'Каждую неделю', monthly: 'Каждый месяц', yearly: 'Каждый год' };
 const ACC_TYPES = { card: 'Карта', cash: 'Наличные', bank: 'Банковский счёт', savings: 'Накопления', credit: 'Кредитка' };
 const ACC_ICONS = { card: 'credit-card', cash: 'banknote', bank: 'landmark', savings: 'piggy-bank', credit: 'credit-card' };
@@ -66,17 +65,8 @@ function dayLabel(s) {
   return d.toLocaleDateString('ru-RU', opts);
 }
 
-const fmtCache = new Map();
-function fmt(amount, cur) {
-  cur = cur || db.base;
-  let f = fmtCache.get(cur);
-  if (!f) {
-    try { f = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: cur, maximumFractionDigits: 2, minimumFractionDigits: 0 }); }
-    catch { f = { format: (n) => `${n.toLocaleString('ru-RU')} ${cur}` }; }
-    fmtCache.set(cur, f);
-  }
-  return f.format(round2(amount));
-}
+const money = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 2, minimumFractionDigits: 0 });
+const fmt = (amount) => money.format(round2(amount));
 
 function fmtShort(n) {
   const a = Math.abs(n);
@@ -137,8 +127,6 @@ function defaultCategories() {
 function emptyDb() {
   return {
     version: 2,
-    base: 'RUB',
-    rates: { USD: 92, EUR: 100 },
     accounts: [],
     categories: defaultCategories(),
     transactions: [],
@@ -161,9 +149,9 @@ function demoDb() {
   const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
   const cat = (name, type = 'expense') => d.categories.find((c) => c.name === name && c.type === type).id;
 
-  const card = { id: uid(), name: 'Основная карта', type: 'card', currency: 'RUB', initial: 42000, color: '#4c6ef5' };
-  const cash = { id: uid(), name: 'Наличные', type: 'cash', currency: 'RUB', initial: 6000, color: '#12b886' };
-  const save = { id: uid(), name: 'Накопления', type: 'savings', currency: 'USD', initial: 1500, color: '#be4bdb' };
+  const card = { id: uid(), name: 'Основная карта', type: 'card', initial: 42000, color: '#4c6ef5' };
+  const cash = { id: uid(), name: 'Наличные', type: 'cash', initial: 6000, color: '#12b886' };
+  const save = { id: uid(), name: 'Накопления', type: 'savings', initial: 140000, color: '#be4bdb' };
   d.accounts.push(card, cash, save);
 
   const work = { id: uid(), name: 'Работа', color: '#228be6' };
@@ -192,7 +180,7 @@ function demoDb() {
     if (dom === 10) tx('expense', card.id, between(4800, 6900), cat('Коммунальные'), s, 'ЖКУ за прошлый месяц');
     if (dom === 15) tx('expense', card.id, 650, cat('Связь и интернет'), s, 'Мобильная связь');
     if (dom === 12) tx('expense', card.id, 399, cat('Подписки'), s, 'Музыкальный сервис');
-    if (dom === 6) d.transactions.push({ id: uid(), type: 'transfer', accountId: card.id, toAccountId: save.id, amount: 9200, toAmount: 100, date: s, note: 'Откладываю' });
+    if (dom === 6) d.transactions.push({ id: uid(), type: 'transfer', accountId: card.id, toAccountId: save.id, amount: 9200, date: s, note: 'Откладываю' });
     if (dom === 18 && day.getMonth() % 2 === 0) tx('income', card.id, between(8000, 15000), cat('Подработка', 'income'), s, 'Проект по договору');
     if (rnd() < 0.45) tx('expense', rnd() < 0.8 ? card.id : cash.id, between(600, 3800), cat('Продукты'), s, pick(['Супермаркет', 'Рынок', 'Продукты у дома', '']));
     if (rnd() < 0.25) tx('expense', rnd() < 0.6 ? card.id : cash.id, between(250, 1800), cat('Кафе и рестораны'), s, pick(['Кофе', 'Ужин', 'Пицца с друзьями']));
@@ -203,7 +191,7 @@ function demoDb() {
     if (rnd() < 0.04) tx('expense', card.id, between(800, 4500), cat('Здоровье'), s, 'Аптека');
     if (rnd() < 0.03) tx('expense', card.id, between(2500, 9000), cat('Одежда'), s, pick(['Куртка', 'Кроссовки', 'Футболки']));
     if (rnd() < 0.02) tx('expense', cash.id, between(1000, 5000), cat('Подарки'), s, 'Подарок на день рождения', [family.id]);
-    if (dom === 8 || dom === 25) d.transactions.push({ id: uid(), type: 'transfer', accountId: card.id, toAccountId: cash.id, amount: 8000, toAmount: 8000, date: s, note: 'Снял наличные' });
+    if (dom === 8 || dom === 25) d.transactions.push({ id: uid(), type: 'transfer', accountId: card.id, toAccountId: cash.id, amount: 8000, date: s, note: 'Снял наличные' });
   }
 
   d.budgets.push(
@@ -228,8 +216,8 @@ function demoDb() {
     { id: uid(), name: 'Подушка безопасности', icon: 'piggy-bank', color: '#40c057', target: 300000, saved: 300000, deadline: '', done: true },
   );
   d.debts.push(
-    { id: uid(), kind: 'lent', person: 'Алексей', amount: 15000, currency: 'RUB', date: addDays(t, -40), due: addDays(t, 5), note: 'На ремонт машины', payments: [{ id: uid(), date: addDays(t, -10), amount: 5000 }] },
-    { id: uid(), kind: 'borrowed', person: 'Мама', amount: 30000, currency: 'RUB', date: addDays(t, -70), due: '', note: '', payments: [{ id: uid(), date: addDays(t, -35), amount: 10000 }, { id: uid(), date: addDays(t, -5), amount: 10000 }] },
+    { id: uid(), kind: 'lent', person: 'Алексей', amount: 15000, date: addDays(t, -40), due: addDays(t, 5), note: 'На ремонт машины', payments: [{ id: uid(), date: addDays(t, -10), amount: 5000 }] },
+    { id: uid(), kind: 'borrowed', person: 'Мама', amount: 30000, date: addDays(t, -70), due: '', note: '', payments: [{ id: uid(), date: addDays(t, -35), amount: 10000 }, { id: uid(), date: addDays(t, -5), amount: 10000 }] },
   );
   const dom20 = end.getDate() <= 20 ? iso(new Date(end.getFullYear(), end.getMonth(), 20)) : iso(new Date(end.getFullYear(), end.getMonth() + 1, 20));
   d.reminders.push(
@@ -253,7 +241,10 @@ function normalize(d) {
   const base = emptyDb();
   const out = { ...base, ...d, settings: { ...base.settings, ...(d.settings || {}) } };
   for (const k of ['accounts', 'categories', 'transactions', 'budgets', 'recurring', 'labels', 'goals', 'debts', 'reminders']) if (!Array.isArray(out[k])) out[k] = [];
-  if (!out.rates || typeof out.rates !== 'object') out.rates = {};
+  // Валют больше нет, всё в рублях: поля прежних мультивалютных версий отбрасываются.
+  delete out.base; delete out.rates;
+  for (const x of [...out.accounts, ...out.debts]) delete x.currency;
+  for (const t of out.transactions) delete t.toAmount;
   if (!out.notified || typeof out.notified !== 'object') out.notified = {};
   if (!out.deleted || typeof out.deleted !== 'object') out.deleted = {};
   for (const x of [...out.categories, ...out.goals]) if (x.icon && EMOJI_TO_ICON[x.icon]) x.icon = EMOJI_TO_ICON[x.icon];
@@ -285,19 +276,14 @@ const ui = {
 const accById = (id) => db.accounts.find((a) => a.id === id);
 const catById = (id) => db.categories.find((c) => c.id === id);
 const labelById = (id) => db.labels.find((l) => l.id === id);
-const rate = (cur) => (cur === db.base ? 1 : Number(db.rates[cur]) || 1);
-const toBase = (amount, cur) => amount * rate(cur);
-const curOf = (accId) => accById(accId)?.currency || db.base;
 const debtPaid = (d) => d.payments.reduce((s, p) => s + p.amount, 0);
 const debtLeft = (d) => round2(d.amount - debtPaid(d));
 
-function txBase(t) { return toBase(t.amount, curOf(t.accountId)); }
-
-/** Изменение общего баланса (в базовой валюте) от операции. */
+/** Изменение общего баланса от операции (перевод между своими счетами его не меняет). */
 function txDelta(t) {
-  if (t.type === 'income') return txBase(t);
-  if (t.type === 'expense') return -txBase(t);
-  return -txBase(t) + toBase(t.toAmount ?? t.amount, curOf(t.toAccountId));
+  if (t.type === 'income') return t.amount;
+  if (t.type === 'expense') return -t.amount;
+  return 0;
 }
 
 function balances() {
@@ -308,14 +294,14 @@ function balances() {
     else if (t.type === 'expense') b[t.accountId] -= t.amount;
     else {
       b[t.accountId] -= t.amount;
-      if (t.toAccountId in b) b[t.toAccountId] += t.toAmount ?? t.amount;
+      if (t.toAccountId in b) b[t.toAccountId] += t.amount;
     }
   }
   return b;
 }
 
 function totalBalance(bal = balances()) {
-  return db.accounts.filter((a) => !a.archived).reduce((s, a) => s + toBase(bal[a.id], a.currency), 0);
+  return db.accounts.filter((a) => !a.archived).reduce((s, a) => s + bal[a.id], 0);
 }
 
 const txInMonth = (mk) => db.transactions.filter((t) => monthOf(t.date) === mk);
@@ -324,8 +310,8 @@ const txInRange = (from, to) => db.transactions.filter((t) => t.date >= from && 
 function totals(list) {
   let income = 0, expense = 0;
   for (const t of list) {
-    if (t.type === 'income') income += txBase(t);
-    else if (t.type === 'expense') expense += txBase(t);
+    if (t.type === 'income') income += t.amount;
+    else if (t.type === 'expense') expense += t.amount;
   }
   return { income, expense, net: income - expense };
 }
@@ -335,7 +321,7 @@ function byCategory(list, type) {
   const m = new Map();
   for (const t of list) {
     if (t.type !== type) continue;
-    m.set(t.categoryId || '', (m.get(t.categoryId || '') || 0) + txBase(t));
+    m.set(t.categoryId || '', (m.get(t.categoryId || '') || 0) + t.amount);
   }
   return [...m].map(([id, value]) => {
     const c = catById(id);
@@ -346,7 +332,7 @@ function byCategory(list, type) {
 function budgetSpent(b, mk) {
   return txInMonth(mk)
     .filter((t) => t.type === 'expense' && (b.categoryId == null || t.categoryId === b.categoryId))
-    .reduce((s, t) => s + txBase(t), 0);
+    .reduce((s, t) => s + t.amount, 0);
 }
 
 function addFreq(s, freq, anchorDay) {
@@ -412,11 +398,11 @@ function upcoming(days = 14) {
   for (const r of db.recurring) {
     if (!r.active || r.next > until) continue;
     const c = catById(r.template.categoryId);
-    items.push({ kind: 'recurring', id: r.id, date: r.next, title: r.template.note || c?.name || 'Регулярный платёж', sub: `${TX_TYPES[r.template.type]} · ${fmt(r.template.amount, curOf(r.template.accountId))}`, icon: c?.icon || 'repeat', color: c?.color || '#868e96' });
+    items.push({ kind: 'recurring', id: r.id, date: r.next, title: r.template.note || c?.name || 'Регулярный платёж', sub: `${TX_TYPES[r.template.type]} · ${fmt(r.template.amount)}`, icon: c?.icon || 'repeat', color: c?.color || '#868e96' });
   }
   for (const d of db.debts) {
     if (!d.due || debtLeft(d) <= 0 || d.due > until) continue;
-    items.push({ kind: 'debt', id: d.id, date: d.due, title: d.kind === 'lent' ? `${d.person} возвращает долг` : `Вернуть долг: ${d.person}`, sub: fmt(debtLeft(d), d.currency), icon: 'hand-coins', color: d.kind === 'lent' ? '#12b886' : '#f03e3e', due: d.due < t });
+    items.push({ kind: 'debt', id: d.id, date: d.due, title: d.kind === 'lent' ? `${d.person} возвращает долг` : `Вернуть долг: ${d.person}`, sub: fmt(debtLeft(d)), icon: 'hand-coins', color: d.kind === 'lent' ? '#12b886' : '#f03e3e', due: d.due < t });
   }
   return items.sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
 }
@@ -443,12 +429,12 @@ function checkReminders() {
   for (const r of db.reminders) if (isDue(r)) fire(`rem:${r.id}:${reminderStamp(r)}`, r.title, r.note || 'Напоминание Монетки');
   for (const r of db.recurring) {
     if (r.active && r.remind && `${addDays(r.next, -1)}T10:00` <= stamp) {
-      fire(`rec:${r.id}:${r.next}`, `Завтра платёж: ${r.template.note || catById(r.template.categoryId)?.name || ''}`, fmt(r.template.amount, curOf(r.template.accountId)));
+      fire(`rec:${r.id}:${r.next}`, `Завтра платёж: ${r.template.note || catById(r.template.categoryId)?.name || ''}`, fmt(r.template.amount));
     }
   }
   for (const d of db.debts) {
     if (d.due && debtLeft(d) > 0 && `${d.due}T10:00` <= stamp) {
-      fire(`debt:${d.id}:${d.due}`, d.kind === 'lent' ? `${d.person} должен вернуть долг` : `Срок возврата долга: ${d.person}`, fmt(debtLeft(d), d.currency));
+      fire(`debt:${d.id}:${d.due}`, d.kind === 'lent' ? `${d.person} должен вернуть долг` : `Срок возврата долга: ${d.person}`, fmt(debtLeft(d)));
     }
   }
   // Старые отметки об отправленных уведомлениях больше не нужны.
@@ -557,7 +543,7 @@ function balanceSeries(mk) {
   const [y, m] = mk.split('-').map(Number);
   const startS = `${mk}-01`;
   const lastDay = monthOf(today()) === mk ? new Date().getDate() : daysInMonth(y, m);
-  let bal = db.accounts.reduce((s, a) => s + toBase(Number(a.initial) || 0, a.currency), 0);
+  let bal = db.accounts.reduce((s, a) => s + (Number(a.initial) || 0), 0);
   const perDay = new Map();
   for (const t of db.transactions) {
     if (t.date < startS) bal += txDelta(t);
@@ -593,20 +579,19 @@ function tagsHtml(t) {
 
 function txRow(t) {
   const acc = accById(t.accountId);
-  const cur = acc?.currency || db.base;
   let b, title, sub, amt, cls;
   if (t.type === 'transfer') {
     const to = accById(t.toAccountId);
     b = badge('arrow-left-right', '#868e96');
     title = 'Перевод';
     sub = `${acc?.name || '—'} → ${to?.name || '—'}${t.note ? ' · ' + t.note : ''}`;
-    amt = fmt(t.amount, cur); cls = '';
+    amt = fmt(t.amount); cls = '';
   } else {
     const c = catById(t.categoryId);
     b = badge(c?.icon || 'circle-help', c?.color || '#adb5bd');
     title = c?.name || 'Без категории';
     sub = [t.note, acc?.name].filter(Boolean).join(' · ');
-    amt = (t.type === 'income' ? '+' : '−') + fmt(t.amount, cur);
+    amt = (t.type === 'income' ? '+' : '−') + fmt(t.amount);
     cls = t.type === 'income' ? 'pos' : 'neg';
   }
   const tags = tagsHtml(t);
@@ -644,7 +629,7 @@ function groupedTx(list) {
   for (const t of sorted) {
     if (t.date !== cur) { flush(); cur = t.date; buf = []; net = 0; }
     buf.push(txRow(t));
-    if (t.type !== 'transfer') net += t.type === 'income' ? txBase(t) : -txBase(t);
+    if (t.type !== 'transfer') net += t.type === 'income' ? t.amount : -t.amount;
   }
   flush();
   return html;
@@ -684,8 +669,7 @@ function viewOverview() {
         <div class="section-title"><h2>Счета</h2><button class="btn sm ghost" data-act="go" data-view="more">Управлять</button></div>
         <div class="accounts">${accs.map((a) => `
           <button class="acc" style="background:linear-gradient(135deg, ${a.color}, ${a.color}cc)" data-act="open-account" data-id="${a.id}">
-            <div class="n">${icon(ACC_ICONS[a.type] || 'wallet')}${esc(a.name)}</div><div class="b num">${esc(fmt(bal[a.id], a.currency))}</div>
-            ${a.currency !== db.base ? `<div class="c num">≈ ${esc(fmt(toBase(bal[a.id], a.currency)))}</div>` : ''}
+            <div class="n">${icon(ACC_ICONS[a.type] || 'wallet')}${esc(a.name)}</div><div class="b num">${esc(fmt(bal[a.id]))}</div>
           </button>`).join('')}
           <button class="acc add" data-act="new-account">${icon('plus')} Счёт</button></div>
       </div>
@@ -773,7 +757,7 @@ function debtRow(d) {
   const overdue = left > 0 && d.due && d.due < today();
   return `<div class="plan" data-act="edit-debt" data-id="${d.id}">
     <div class="top"><span class="ttl">${badge(d.kind === 'lent' ? 'arrow-up-right' : 'arrow-down-left', d.kind === 'lent' ? '#12b886' : '#f03e3e', 'sm')}<span>${esc(d.person)} <span class="muted small">${d.kind === 'lent' ? 'должен мне' : 'я должен'}</span></span></span>
-    <span class="num ${left === 0 ? 'muted' : d.kind === 'lent' ? 'pos' : 'neg'}"><b>${esc(fmt(left, d.currency))}</b> <span class="muted small">из ${esc(fmt(d.amount, d.currency))}</span></span></div>
+    <span class="num ${left === 0 ? 'muted' : d.kind === 'lent' ? 'pos' : 'neg'}"><b>${esc(fmt(left))}</b> <span class="muted small">из ${esc(fmt(d.amount))}</span></span></div>
     <div class="bar"><i style="width:${pct * 100}%"></i></div>
     <div class="top small"><span class="${overdue ? 'neg' : 'muted'}">${left === 0 ? 'Погашен' : d.due ? `${overdue ? 'Просрочен с' : 'Вернуть до'} ${esc(parseISO(d.due).toLocaleDateString('ru-RU'))}` : 'Без срока'}${d.note ? ' · ' + esc(d.note) : ''}</span>
     ${left > 0 ? `<button class="btn sm" data-act="debt-pay" data-id="${d.id}">${icon('plus')} Возврат</button>` : ''}</div></div>`;
@@ -786,7 +770,7 @@ function recurringRow(r) {
     ${r.template.type === 'transfer' ? badge('arrow-left-right', '#868e96') : badge(c?.icon || 'repeat', c?.color || '#868e96')}
     <span class="mid"><div class="t">${esc(r.template.note || c?.name || TX_TYPES[r.template.type])}</div>
     <div class="s">${esc(FREQ[r.freq])} · следующий ${esc(dayLabel(r.next))}${r.remind ? ' · с напоминанием' : ''}${r.active ? '' : ' · приостановлен'}</div></span>
-    <span class="amt num ${r.template.type === 'income' ? 'pos' : r.template.type === 'expense' ? 'neg' : ''}">${esc(fmt(r.template.amount, a?.currency))}</span></li>`;
+    <span class="amt num ${r.template.type === 'income' ? 'pos' : r.template.type === 'expense' ? 'neg' : ''}">${esc(fmt(r.template.amount))}</span></li>`;
 }
 
 function reminderRow(r) {
@@ -802,8 +786,7 @@ function viewPlans() {
   let right = '', body = '';
   if (tab === 'budgets') {
     right = `${monthNav()}<button class="btn primary" data-act="new-budget">${icon('plus')} Бюджет</button>`;
-    body = `<div class="card">${db.budgets.length ? db.budgets.map((b) => budgetRow(b, ui.month)).join('') : emptyState('target', 'Бюджет — это месячный лимит трат на категорию или на все расходы сразу.')}</div>
-      <p class="muted small">Суммы бюджетов — в базовой валюте (${esc(db.base)}); траты в других валютах пересчитываются по курсам из «Ещё → Валюты».</p>`;
+    body = `<div class="card">${db.budgets.length ? db.budgets.map((b) => budgetRow(b, ui.month)).join('') : emptyState('target', 'Бюджет — это месячный лимит трат на категорию или на все расходы сразу.')}</div>`;
   } else if (tab === 'goals') {
     const reached = (g) => g.done || g.saved >= g.target;
     const active = db.goals.filter((g) => !reached(g)), done = db.goals.filter(reached);
@@ -819,7 +802,7 @@ function viewPlans() {
     right = `<button class="btn primary" data-act="new-tx">${icon('plus')} Платёж</button>`;
     const sorted = [...db.recurring].sort((a, b) => a.next.localeCompare(b.next));
     const monthly = db.recurring.filter((r) => r.active && r.template.type === 'expense')
-      .reduce((s, r) => s + toBase(r.template.amount, curOf(r.template.accountId)) * ({ daily: 30, weekly: 4.33, monthly: 1, yearly: 1 / 12 }[r.freq] || 1), 0);
+      .reduce((s, r) => s + r.template.amount * ({ daily: 30, weekly: 4.33, monthly: 1, yearly: 1 / 12 }[r.freq] || 1), 0);
     body = `${db.recurring.length ? `<div class="card"><div class="muted small">Регулярные расходы в месяц ≈</div><div class="big num" style="font-size:26px">${esc(fmt(monthly))}</div></div>` : ''}
       <div class="card">${sorted.length ? `<ul class="list">${sorted.map(recurringRow).join('')}</ul>` : emptyState('repeat', 'Аренда, подписки, зарплата — добавьте запись и выберите «Повтор», и она будет создаваться автоматически.')}</div>`;
   } else if (tab === 'reminders') {
@@ -838,8 +821,8 @@ function viewPlans() {
       ${done.length ? `<div class="card"><div class="section-title"><h2>Выполненные</h2><button class="btn sm" data-act="clear-done-reminders">Очистить</button></div><ul class="list">${done.map(reminderRow).join('')}</ul></div>` : ''}`;
   } else {
     const open = db.debts.filter((d) => debtLeft(d) > 0), closed = db.debts.filter((d) => debtLeft(d) <= 0);
-    const lent = open.filter((d) => d.kind === 'lent').reduce((s, d) => s + toBase(debtLeft(d), d.currency), 0);
-    const borrowed = open.filter((d) => d.kind === 'borrowed').reduce((s, d) => s + toBase(debtLeft(d), d.currency), 0);
+    const lent = open.filter((d) => d.kind === 'lent').reduce((s, d) => s + debtLeft(d), 0);
+    const borrowed = open.filter((d) => d.kind === 'borrowed').reduce((s, d) => s + debtLeft(d), 0);
     right = `<button class="btn primary" data-act="new-debt">${icon('plus')} Долг</button>`;
     body = `<div class="card"><div class="kpis">
         <div class="kpi"><span class="muted small">Мне должны</span><b class="num pos">${esc(fmt(lent))}</b></div>
@@ -894,8 +877,8 @@ function reportData() {
   if (r.cat) list = list.filter((t) => (r.cat === 'none' ? !catById(t.categoryId) : t.categoryId === r.cat));
   if (r.label) list = list.filter((t) => (t.labels || []).includes(r.label));
   if (r.acc) list = list.filter((t) => t.accountId === r.acc);
-  list.sort(r.sort === 'amount' ? (a, b) => txBase(b) - txBase(a) : (a, b) => b.date.localeCompare(a.date) || (b.id > a.id ? 1 : -1));
-  const total = list.reduce((s, t) => s + txBase(t), 0);
+  list.sort(r.sort === 'amount' ? (a, b) => b.amount - a.amount : (a, b) => b.date.localeCompare(a.date) || (b.id > a.id ? 1 : -1));
+  const total = list.reduce((s, t) => s + t.amount, 0);
   const days = Math.round((parseISO(range.to < today() ? range.to : today()) - parseISO(range.from)) / 864e5) + 1;
   return { range, list, total, days: Math.max(days, 1) };
 }
@@ -965,7 +948,7 @@ function viewReport() {
           <span class="date"><b>${d.getDate()}</b>${d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}${d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : ''}</span>
           ${r.cat ? '' : badge(cat?.icon || 'circle-help', cat?.color || '#adb5bd', 'sm')}
           <span class="mid"><div class="t">${esc(t.note || cat?.name || 'Без описания')}</div><div class="s">${esc([r.cat ? '' : cat?.name, acc?.name].filter(Boolean).join(' · '))}</div>${tags ? `<div class="tags">${tags}</div>` : ''}</span>
-          <span class="amt num ${r.type === 'income' ? 'pos' : 'neg'}">${esc(fmt(t.amount, acc?.currency))}${acc && acc.currency !== db.base ? `<div class="s">≈ ${esc(fmt(txBase(t)))}</div>` : ''}</span></li>`;
+          <span class="amt num ${r.type === 'income' ? 'pos' : 'neg'}">${esc(fmt(t.amount))}</span></li>`;
       }).join('')}</ul>` : emptyState('search', 'За этот период таких операций нет')}
     </div>`;
 }
@@ -992,8 +975,8 @@ function viewMore() {
         <div class="section-title"><h2>Счета</h2><button class="btn sm" data-act="new-account">${icon('plus')} Счёт</button></div>
         ${db.accounts.length ? `<ul class="list">${db.accounts.map((a) => `
           <li class="row" data-act="edit-account" data-id="${a.id}">${badge(ACC_ICONS[a.type] || 'wallet', a.color)}
-            <span class="mid"><div class="t">${esc(a.name)}${a.archived ? ' <span class="muted small">(скрыт)</span>' : ''}</div><div class="s">${esc(ACC_TYPES[a.type] || '')} · ${esc(a.currency)}</div></span>
-            <span class="amt num">${esc(fmt(bal[a.id], a.currency))}</span></li>`).join('')}</ul>` : emptyState('wallet', 'Счетов нет')}
+            <span class="mid"><div class="t">${esc(a.name)}${a.archived ? ' <span class="muted small">(скрыт)</span>' : ''}</div><div class="s">${esc(ACC_TYPES[a.type] || '')}</div></span>
+            <span class="amt num">${esc(fmt(bal[a.id]))}</span></li>`).join('')}</ul>` : emptyState('wallet', 'Счетов нет')}
       </div>
 
       <div class="card">
@@ -1015,17 +998,6 @@ function viewMore() {
         }).join('')}</div>` : emptyState('tag', 'Метки группируют записи поверх категорий: «Отпуск», «Работа», «Ремонт»…')}
       </div>
 
-      <div class="card">
-        <h2>Валюты</h2>
-        <label class="f">Базовая валюта (для общего баланса, бюджетов и отчётов)
-          <select id="base-cur">${CURRENCIES.map((c) => `<option ${c === db.base ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <div class="small muted" style="margin-bottom:8px">Курсы: сколько ${esc(db.base)} стоит 1 единица валюты</div>
-        ${Object.keys(db.rates).filter((c) => c !== db.base).map((c) => `
-          <div class="rate-row"><b>${esc(c)}</b><input type="text" inputmode="decimal" data-rate="${esc(c)}" value="${esc(db.rates[c])}">
-          <button class="icon-btn" data-act="del-rate" data-c="${esc(c)}" aria-label="Удалить курс ${esc(c)}">${icon('x')}</button></div>`).join('')}
-        <div class="toolbar" style="margin-top:8px"><select id="new-rate-cur">${CURRENCIES.filter((c) => c !== db.base && !(c in db.rates)).map((c) => `<option>${c}</option>`).join('')}</select>
-          <button class="btn sm" data-act="add-rate">${icon('plus')} Добавить курс</button></div>
-      </div>
 
       <div class="card">
         <h2>Данные</h2>
@@ -1103,7 +1075,7 @@ function fail(form, msg, field) {
 
 function accountOptions(selected) {
   return db.accounts.filter((a) => !a.archived || a.id === selected)
-    .map((a) => `<option value="${a.id}" ${a.id === selected ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`).join('');
+    .map((a) => `<option value="${a.id}" ${a.id === selected ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
 }
 
 function txModal(tx = null) {
@@ -1120,7 +1092,6 @@ function txModal(tx = null) {
       <label class="f"><span id="acc-label">Счёт</span><select name="account">${accountOptions(t.accountId)}</select></label>
       <label class="f" id="to-wrap">На счёт<select name="to">${accountOptions(t.toAccountId)}</select></label>
     </div>
-    <label class="f" id="to-amount-wrap">Сумма зачисления (в валюте счёта получателя)<input name="toAmount" type="text" inputmode="decimal" value="${esc(t.toAmount ?? '')}"></label>
     <label class="f">Описание<input type="text" name="note" value="${esc(t.note)}" maxlength="200" placeholder="Например: такси на встречу с клиентом"></label>
     ${db.labels.length ? `<div class="f"><span class="lbl">Метки</span><div class="chips">${db.labels.map((l) =>
       `<button type="button" class="chip ${(t.labels || []).includes(l.id) ? 'on' : ''}" data-label="${l.id}">${esc(l.name)}</button>`).join('')}</div></div>` : ''}
@@ -1147,7 +1118,6 @@ function txModal(tx = null) {
         $('#cat-grid', form).innerHTML = cats.map((c) =>
           `<button type="button" class="cat-pick ${c.id === el.category.value ? 'on' : ''}" data-cat="${c.id}">${badge(c.icon, c.color, 'sm')}<span>${esc(c.name)}</span></button>`).join('')
           + `<button type="button" class="cat-pick" data-new-cat><span class="cico sm" style="background:var(--surface-2);color:var(--muted)">${icon('plus')}</span><span>Новая</span></button>`;
-        $('#to-amount-wrap', form).hidden = type !== 'transfer' || curOf(el.account.value) === curOf(el.to.value);
         if (el.repeat) $('#remind-wrap', form).hidden = el.repeat.value === 'none';
       };
       form.addEventListener('click', (e) => {
@@ -1181,12 +1151,6 @@ function txModal(tx = null) {
       if (type === 'transfer') {
         rec.toAccountId = fd.get('to');
         if (!rec.toAccountId || rec.toAccountId === rec.accountId) return fail(form, 'Выберите другой счёт для перевода', 'to');
-        if (curOf(rec.accountId) === curOf(rec.toAccountId)) rec.toAmount = amount;
-        else {
-          let to = round2(parseAmount(fd.get('toAmount')));
-          if (!(to > 0)) to = round2(toBase(amount, curOf(rec.accountId)) / rate(curOf(rec.toAccountId)));
-          rec.toAmount = to;
-        }
       } else {
         rec.categoryId = fd.get('category') || null;
       }
@@ -1248,15 +1212,13 @@ function bindAppearance(form, { colorField = 'color', iconField, preview } = {})
 }
 
 function accountModal(acc = null) {
-  const a = acc || { name: '', type: 'card', currency: db.base, initial: 0, color: COLORS[(db.accounts.length * 3 + 4) % COLORS.length] };
-  const used = acc && db.transactions.some((t) => t.accountId === acc.id || t.toAccountId === acc.id);
+  const a = acc || { name: '', type: 'card', initial: 0, color: COLORS[(db.accounts.length * 3 + 4) % COLORS.length] };
   openModal(acc ? 'Счёт' : 'Новый счёт', `
     <label class="f">Название<input type="text" name="name" value="${esc(a.name)}" maxlength="60" placeholder="Например: Зарплатная карта"></label>
     <div class="two">
       <label class="f">Тип<select name="type">${Object.entries(ACC_TYPES).map(([k, v]) => `<option value="${k}" ${k === a.type ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-      <label class="f">Валюта<select name="currency" ${used ? 'disabled title="Нельзя сменить валюту счёта с операциями"' : ''}>${CURRENCIES.map((c) => `<option ${c === a.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      <label class="f">Начальный баланс<input type="text" inputmode="decimal" name="initial" value="${esc(a.initial)}"></label>
     </div>
-    <label class="f">Начальный баланс<input type="text" inputmode="decimal" name="initial" value="${esc(a.initial)}"></label>
     <div class="f"><span class="lbl">Цвет</span>${colorPicker('color', a.color)}</div>
     ${acc ? `<label class="switch"><input type="checkbox" name="archived" ${a.archived ? 'checked' : ''}> Скрыть счёт из обзора и общего баланса</label>` : ''}`, {
     onOpen(form) { bindAppearance(form); form.elements.name.focus(); },
@@ -1265,11 +1227,9 @@ function accountModal(acc = null) {
       if (!name) return fail(form, 'Введите название счёта', 'name');
       const initial = parseAmount(fd.get('initial') || 0);
       if (!Number.isFinite(initial)) return fail(form, 'Некорректный начальный баланс', 'initial');
-      const rec = { name, type: fd.get('type'), currency: fd.get('currency') || a.currency, initial: round2(initial), color: fd.get('color'), archived: fd.get('archived') === 'on' };
-      if (rec.currency !== db.base && !(rec.currency in db.rates)) db.rates[rec.currency] = 1;
+      const rec = { name, type: fd.get('type'), initial: round2(initial), color: fd.get('color'), archived: fd.get('archived') === 'on' };
       if (acc) Object.assign(acc, rec);
       else db.accounts.push({ id: uid(), ...rec });
-      if (rec.currency !== db.base && db.rates[rec.currency] === 1) toast(`Укажите курс ${rec.currency} в разделе «Ещё → Валюты»`);
     },
     onDelete: acc ? () => {
       const n = db.transactions.filter((t) => t.accountId === acc.id || t.toAccountId === acc.id).length;
@@ -1321,7 +1281,7 @@ function budgetModal(b = null) {
   openModal(b ? 'Бюджет' : 'Новый бюджет', `
     <label class="f">На что<select name="category"><option value="">Все расходы</option>
       ${cats.map((c) => `<option value="${c.id}" ${c.id === cur.categoryId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
-    <label class="f">Лимит в месяц, ${esc(db.base)}<input class="amount-input num" type="text" inputmode="decimal" name="limit" value="${esc(cur.limit)}"></label>`, {
+    <label class="f">Лимит в месяц<input class="amount-input num" type="text" inputmode="decimal" name="limit" value="${esc(cur.limit)}"></label>`, {
     onOpen(form) { form.elements.limit.focus(); },
     onSubmit(fd, form) {
       const limit = round2(parseAmount(fd.get('limit')));
@@ -1339,7 +1299,7 @@ function recurringModal(r) {
   const a = accById(r.template.accountId);
   openModal('Регулярный платёж', `
     <p class="muted small" style="margin-top:0">${esc(TX_TYPES[r.template.type])} · ${esc(catById(r.template.categoryId)?.name || '')} · ${esc(a?.name || '')}</p>
-    <label class="f">Сумма, ${esc(a?.currency || db.base)}<input class="amount-input num" type="text" inputmode="decimal" name="amount" value="${esc(r.template.amount)}"></label>
+    <label class="f">Сумма<input class="amount-input num" type="text" inputmode="decimal" name="amount" value="${esc(r.template.amount)}"></label>
     <div class="two">
       <label class="f">Периодичность<select name="freq">${Object.entries(FREQ).filter(([k]) => k !== 'none').map(([k, v]) => `<option value="${k}" ${k === r.freq ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <label class="f">Следующий платёж<input type="date" name="next" value="${esc(r.next)}"></label>
@@ -1422,7 +1382,7 @@ function goalModal(g = null) {
       <label class="f" style="flex:1;margin:0">Название<input type="text" name="name" value="${esc(cur.name)}" maxlength="60" placeholder="Например: Новая машина"></label>
     </div>
     <div class="two">
-      <label class="f">Нужно, ${esc(db.base)}<input class="num" type="text" inputmode="decimal" name="target" value="${esc(cur.target)}"></label>
+      <label class="f">Нужно<input class="num" type="text" inputmode="decimal" name="target" value="${esc(cur.target)}"></label>
       <label class="f">Уже накоплено<input class="num" type="text" inputmode="decimal" name="saved" value="${esc(cur.saved)}"></label>
     </div>
     <label class="f">Срок (необязательно)<input type="date" name="deadline" value="${esc(cur.deadline)}"></label>
@@ -1449,7 +1409,7 @@ function goalModal(g = null) {
 function goalAddModal(g) {
   openModal(`Пополнить: ${g.name}`, `
     <p class="muted small" style="margin-top:0">Накоплено ${esc(fmt(g.saved))} из ${esc(fmt(g.target))}. Чтобы снять деньги с цели, введите отрицательную сумму.</p>
-    <label class="f">Сумма, ${esc(db.base)}<input class="amount-input num" type="text" inputmode="decimal" name="amount"></label>`, {
+    <label class="f">Сумма<input class="amount-input num" type="text" inputmode="decimal" name="amount"></label>`, {
     submitText: 'Пополнить',
     onOpen(form) { form.elements.amount.focus(); },
     onSubmit(fd, form) {
@@ -1462,18 +1422,15 @@ function goalAddModal(g) {
 }
 
 function debtModal(d = null) {
-  const cur = d || { kind: 'lent', person: '', amount: '', currency: db.base, date: today(), due: '', note: '', payments: [] };
+  const cur = d || { kind: 'lent', person: '', amount: '', date: today(), due: '', note: '', payments: [] };
   const history = d && d.payments.length ? `<div class="f"><span class="lbl">История возвратов</span><ul class="list">${[...d.payments].sort((a, b) => b.date.localeCompare(a.date)).map((p) => `
-    <li class="row" style="cursor:default"><span class="mid">${esc(dayLabel(p.date))}</span><span class="amt num">${esc(fmt(p.amount, d.currency))}</span>
+    <li class="row" style="cursor:default"><span class="mid">${esc(dayLabel(p.date))}</span><span class="amt num">${esc(fmt(p.amount))}</span>
     <button type="button" class="icon-btn" data-del-pay="${p.id}" aria-label="Удалить возврат">${icon('x')}</button></li>`).join('')}</ul></div>` : '';
   openModal(d ? 'Долг' : 'Новый долг', `
     <div class="seg"><button type="button" data-kind="lent">Я дал в долг</button><button type="button" data-kind="borrowed">Я взял в долг</button></div>
     <input type="hidden" name="kind" value="${cur.kind}">
     <label class="f">Кто<input type="text" name="person" value="${esc(cur.person)}" maxlength="60" placeholder="Имя"></label>
-    <div class="two">
-      <label class="f">Сумма<input class="num" type="text" inputmode="decimal" name="amount" value="${esc(cur.amount)}"></label>
-      <label class="f">Валюта<select name="currency">${CURRENCIES.map((c) => `<option ${c === cur.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-    </div>
+    <label class="f">Сумма<input class="num" type="text" inputmode="decimal" name="amount" value="${esc(cur.amount)}"></label>
     <div class="two">
       <label class="f">Дата<input type="date" name="date" value="${esc(cur.date)}"></label>
       <label class="f">Вернуть до<input type="date" name="due" value="${esc(cur.due)}"></label>
@@ -1500,8 +1457,7 @@ function debtModal(d = null) {
       if (!person) return fail(form, 'Укажите, с кем долг', 'person');
       const amount = round2(parseAmount(fd.get('amount')));
       if (!(amount > 0)) return fail(form, 'Введите сумму больше нуля', 'amount');
-      const rec = { kind: fd.get('kind'), person, amount, currency: fd.get('currency'), date: fd.get('date') || today(), due: fd.get('due') || '', note: String(fd.get('note') || '').trim() };
-      if (rec.currency !== db.base && !(rec.currency in db.rates)) db.rates[rec.currency] = 1;
+      const rec = { kind: fd.get('kind'), person, amount, date: fd.get('date') || today(), due: fd.get('due') || '', note: String(fd.get('note') || '').trim() };
       if (d) Object.assign(d, rec);
       else db.debts.push({ id: uid(), ...rec, payments: [] });
     },
@@ -1512,15 +1468,15 @@ function debtModal(d = null) {
 function debtPayModal(d) {
   const left = debtLeft(d);
   openModal(`Возврат: ${d.person}`, `
-    <p class="muted small" style="margin-top:0">Осталось ${esc(fmt(left, d.currency))}</p>
-    <label class="f">Сумма, ${esc(d.currency)}<input class="amount-input num" type="text" inputmode="decimal" name="amount" value="${left}"></label>
+    <p class="muted small" style="margin-top:0">Осталось ${esc(fmt(left))}</p>
+    <label class="f">Сумма<input class="amount-input num" type="text" inputmode="decimal" name="amount" value="${left}"></label>
     <label class="f">Дата<input type="date" name="date" value="${today()}"></label>`, {
     submitText: 'Записать',
     onOpen(form) { form.elements.amount.select(); },
     onSubmit(fd, form) {
       const amount = round2(parseAmount(fd.get('amount')));
       if (!(amount > 0)) return fail(form, 'Введите сумму больше нуля', 'amount');
-      if (amount > left) return fail(form, `Больше остатка долга (${fmt(left, d.currency)})`, 'amount');
+      if (amount > left) return fail(form, `Больше остатка долга (${fmt(left)})`, 'amount');
       d.payments.push({ id: uid(), date: fd.get('date') || today(), amount });
       toast(amount === left ? 'Долг погашен' : 'Возврат записан');
     },
@@ -1536,11 +1492,11 @@ function csvCell(v) {
 const csvNum = (n) => String(round2(n)).replace('.', ',');
 
 function exportCsv() {
-  const head = ['Дата', 'Тип', 'Счёт', 'Категория', 'Сумма', 'Валюта', 'Счёт зачисления', 'Сумма зачисления', 'Комментарий', 'Метки'];
+  const head = ['Дата', 'Тип', 'Счёт', 'Категория', 'Сумма', 'Счёт зачисления', 'Комментарий', 'Метки'];
   const rows = [...db.transactions].sort((a, b) => a.date.localeCompare(b.date)).map((t) => {
     const a = accById(t.accountId), to = accById(t.toAccountId);
-    return [t.date, TX_TYPES[t.type], a?.name, catById(t.categoryId)?.name, csvNum(t.amount), a?.currency,
-      to?.name, t.type === 'transfer' ? csvNum(t.toAmount ?? t.amount) : '', t.note,
+    return [t.date, TX_TYPES[t.type], a?.name, catById(t.categoryId)?.name, csvNum(t.amount),
+      to?.name, t.note,
       (t.labels || []).map((l) => labelById(l)?.name).filter(Boolean).join(', ')];
   });
   const text = '﻿' + [head, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n');
@@ -1550,11 +1506,11 @@ function exportCsv() {
 function exportReportCsv() {
   const { range, list, total } = reportData();
   const rows = [
-    [`Отчёт: ${reportTitle()}`], [`Период: ${range.label} (${range.from} — ${range.to})`], [`Итого, ${db.base}`, csvNum(total)], [],
-    ['Дата', 'Категория', 'Описание', 'Счёт', 'Сумма', 'Валюта', `Сумма, ${db.base}`, 'Метки'],
+    [`Отчёт: ${reportTitle()}`], [`Период: ${range.label} (${range.from} — ${range.to})`], ['Итого', csvNum(total)], [],
+    ['Дата', 'Категория', 'Описание', 'Счёт', 'Сумма', 'Метки'],
     ...list.map((t) => {
       const a = accById(t.accountId);
-      return [t.date, catById(t.categoryId)?.name || '', t.note, a?.name, csvNum(t.amount), a?.currency, csvNum(txBase(t)),
+      return [t.date, catById(t.categoryId)?.name || '', t.note, a?.name, csvNum(t.amount),
         (t.labels || []).map((l) => labelById(l)?.name).filter(Boolean).join(', ')];
     }),
   ];
@@ -1603,18 +1559,17 @@ async function importCsv() {
   const exact = (...names) => head.findIndex((h) => names.includes(h));
   const ix = {
     date: exact('дата', 'date'), type: exact('тип', 'type'), acc: exact('счёт', 'счет', 'account'), cat: exact('категория', 'category'),
-    amount: exact('сумма', 'amount'), cur: exact('валюта', 'currency'), to: exact('счёт зачисления', 'счет зачисления', 'to account'),
-    toAmount: exact('сумма зачисления', 'to amount'), note: exact('комментарий', 'описание', 'note', 'description'), labels: exact('метки', 'labels', 'tags'),
+    amount: exact('сумма', 'amount'), to: exact('счёт зачисления', 'счет зачисления', 'to account'),
+    note: exact('комментарий', 'описание', 'note', 'description'), labels: exact('метки', 'labels', 'tags'),
   };
   if (ix.date < 0 || ix.amount < 0) { toast('Нужны как минимум столбцы «Дата» и «Сумма»'); return; }
 
-  const findOrCreateAccount = (name, cur) => {
+  const findOrCreateAccount = (name) => {
     name = (name || 'Импорт').trim();
     let a = db.accounts.find((x) => x.name.toLowerCase() === name.toLowerCase());
     if (!a) {
-      a = { id: uid(), name, type: 'card', currency: CURRENCIES.includes(cur) ? cur : db.base, initial: 0, color: COLORS[(db.accounts.length * 3 + 4) % COLORS.length] };
+      a = { id: uid(), name, type: 'card', initial: 0, color: COLORS[(db.accounts.length * 3 + 4) % COLORS.length] };
       db.accounts.push(a);
-      if (a.currency !== db.base && !(a.currency in db.rates)) db.rates[a.currency] = 1;
     }
     return a;
   };
@@ -1634,15 +1589,13 @@ async function importCsv() {
     const tRaw = get(ix.type).toLowerCase();
     let type = { 'расход': 'expense', 'expense': 'expense', 'доход': 'income', 'income': 'income', 'перевод': 'transfer', 'transfer': 'transfer' }[tRaw];
     if (!type) type = raw < 0 ? 'expense' : 'income';
-    const acc = findOrCreateAccount(get(ix.acc), get(ix.cur).toUpperCase());
+    const acc = findOrCreateAccount(get(ix.acc));
     const t = { id: uid(), type, accountId: acc.id, amount: round2(Math.abs(raw)), date, note: get(ix.note) };
     if (type === 'transfer') {
       const toName = get(ix.to);
       if (!toName) { skipped++; continue; }
-      const to = findOrCreateAccount(toName, acc.currency);
+      const to = findOrCreateAccount(toName);
       t.toAccountId = to.id;
-      const ta = parseAmount(get(ix.toAmount));
-      t.toAmount = Number.isFinite(ta) && ta > 0 ? round2(ta) : t.amount;
     } else {
       t.categoryId = findOrCreateCategory(get(ix.cat), type);
     }
@@ -1672,22 +1625,6 @@ async function importJson() {
   } catch {
     toast('Файл не похож на резервную копию Монетки');
   }
-}
-
-function changeBase(newBase) {
-  if (newBase === db.base) return;
-  const old = db.base;
-  const k = rate(newBase); // сколько старой базы стоит 1 новой
-  const precise = (x) => Number(x.toPrecision(8));
-  const rates = {};
-  for (const [c, v] of Object.entries(db.rates)) if (c !== newBase) rates[c] = precise((Number(v) || 1) / k);
-  rates[old] = precise(1 / k);
-  db.rates = rates;
-  db.budgets.forEach((b) => { b.limit = round2(b.limit / k); });
-  db.goals.forEach((g) => { g.target = round2(g.target / k); g.saved = round2(g.saved / k); });
-  db.base = newBase;
-  fmtCache.clear();
-  toast(`Базовая валюта: ${newBase}. Курсы, бюджеты и цели пересчитаны.`);
 }
 
 /* ============================== События ============================== */
@@ -1747,16 +1684,6 @@ document.addEventListener('click', (e) => {
     case 'rep-type': ui.rep.type = el.dataset.t; ui.rep.cat = ''; render(); break;
     case 'rep-csv': exportReportCsv(); break;
     case 'rep-print': window.print(); break;
-    case 'add-rate': {
-      const c = $('#new-rate-cur')?.value;
-      if (c) { db.rates[c] = 1; save(); render(); toast(`Укажите курс ${c}`); }
-      break;
-    }
-    case 'del-rate': {
-      const c = el.dataset.c;
-      if (db.accounts.some((a) => a.currency === c)) { toast(`Валюта ${c} используется в счетах`); break; }
-      delete db.rates[c]; save(); render(); break;
-    }
     case 'theme': db.settings.theme = el.dataset.t; save(); applyTheme(); render(); break;
     case 'go-sync': go('more'); break;
     case 'sync': Sync.syncNow(true); break;
@@ -1813,14 +1740,7 @@ document.addEventListener('change', (e) => {
     }
     case 'rep-from': rep.from = t.value; if (rep.to && rep.to < rep.from) rep.to = rep.from; break;
     case 'rep-to': rep.to = t.value; if (rep.from && rep.from > rep.to) rep.from = rep.to; break;
-    case 'base-cur': changeBase(t.value); save(); break;
-    default:
-      if (!t.dataset.rate) return;
-      {
-        const v = parseAmount(t.value);
-        if (v > 0) { db.rates[t.dataset.rate] = v; save(); toast('Курс обновлён'); }
-        else toast('Курс должен быть больше нуля');
-      }
+    default: return;
   }
   render();
 });

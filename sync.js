@@ -20,7 +20,7 @@ const Sync = (() => {
   const DRIVE = 'https://www.googleapis.com/drive/v3';
   const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
   const COLLECTIONS = ['accounts', 'categories', 'transactions', 'budgets', 'recurring', 'labels', 'goals', 'debts', 'reminders'];
-  const SCALARS = ['base', 'rates', 'settings'];
+  const SCALARS = ['settings'];
   const TOMBSTONE_TTL = 180 * 864e5;
 
   // Настройки этого устройства (не синхронизируются): Client ID, факт подключения, адрес аккаунта, id файла.

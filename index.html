@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Монетка — учёт финансов</title>
   <meta name="description" content="Личные финансы: счета, операции, бюджеты, цели, напоминания и отчёты. Данные хранятся только на вашем устройстве.">
-  <meta name="theme-color" content="#3b5bdb">
+  <meta name="theme-color" content="#f4f4f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
@@ -17,6 +18,7 @@
   <div class="app">
     <nav class="nav" aria-label="Разделы">
       <div class="brand"><img src="icon.svg" alt="" width="30" height="30"><span>Монетка</span></div>
+      <button class="btn primary nav-add" id="nav-add"><span data-icon="plus"></span>Новая запись</button>
       <button class="nav-item" data-view="overview"><span class="ni" data-icon="layout-dashboard"></span><span>Обзор</span></button>
       <button class="nav-item" data-view="transactions"><span class="ni" data-icon="list-ordered"></span><span>Записи</span></button>
       <button class="nav-item" data-view="budgets"><span class="ni" data-icon="target"></span><span>Планы</span></button>

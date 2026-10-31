@@ -1,5 +1,5 @@
 // Offline cache for the app shell: network first (so updates arrive immediately), cache when offline.
-const CACHE = 'monetka-v7';
+const CACHE = 'monetka-v8';
 const SHELL = ['./', 'index.html', 'styles.css', 'config.js', 'icons.js', 'sync.js', 'app.js', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

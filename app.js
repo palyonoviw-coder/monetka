@@ -663,12 +663,12 @@ function viewOverview() {
   const accs = db.accounts.filter((a) => !a.archived);
   const soon = upcoming(10).slice(0, 5);
   return topbar('Обзор', 'Общий баланс', `<span data-sync-slot="btn">${Sync.button()}</span>`, `<div class="big num" style="margin-top:6px">${esc(fmt(total))}</div>`) + `
-    <div class="content lift stack">
+    <div class="content stack">
       ${dueAlerts()}
       <div class="card">
         <div class="section-title"><h2>Счета</h2><button class="btn sm ghost" data-act="go" data-view="more">Управлять</button></div>
         <div class="accounts">${accs.map((a) => `
-          <button class="acc" style="background:linear-gradient(135deg, ${a.color}, ${a.color}cc)" data-act="open-account" data-id="${a.id}">
+          <button class="acc" style="--c:${a.color}" data-act="open-account" data-id="${a.id}">
             <div class="n">${icon(ACC_ICONS[a.type] || 'wallet')}${esc(a.name)}</div><div class="b num">${esc(fmt(bal[a.id]))}</div>
           </button>`).join('')}
           <button class="acc add" data-act="new-account">${icon('plus')} Счёт</button></div>
@@ -716,7 +716,7 @@ function viewTransactions() {
   }
   const tt = totals(list);
   return topbar('Записи', q ? 'Поиск по всем месяцам' : `${list.length} ${plural(list.length, 'запись', 'записи', 'записей')}`, q ? '' : monthNav()) + `
-    <div class="content lift stack">
+    <div class="content stack">
       <div class="card">
         <div class="toolbar">
           <input type="search" id="q" placeholder="Поиск: описание, категория, сумма, метка" value="${esc(ui.q)}">
@@ -831,7 +831,7 @@ function viewPlans() {
       ${closed.length ? `<div class="card"><h2>Погашенные</h2>${closed.map(debtRow).join('')}</div>` : ''}`;
   }
   return topbar('Планы', PLAN_TABS[tab], right) + `
-    <div class="content lift stack">
+    <div class="content stack">
       <div class="card" style="padding:6px"><div class="seg scroll" style="background:none">${Object.entries(PLAN_TABS).map(([k, v]) => `<button class="${tab === k ? 'on' : ''}" data-act="plan-tab" data-t="${k}">${v}</button>`).join('')}</div></div>
       ${body}
     </div>`;
@@ -956,7 +956,7 @@ function viewReport() {
 function viewStats() {
   const report = ui.statsTab === 'report';
   return topbar('Отчёты', report ? 'Список операций по категории за период' : 'Аналитика за месяц', report ? '' : monthNav()) + `
-    <div class="content lift stack">
+    <div class="content stack">
       <div class="card no-print" style="padding:6px"><div class="seg" style="background:none;max-width:420px">
         <button class="${report ? '' : 'on'}" data-act="stats-tab" data-t="analytics">Аналитика</button>
         <button class="${report ? 'on' : ''}" data-act="stats-tab" data-t="report">По категории</button></div></div>
@@ -969,7 +969,7 @@ function viewMore() {
   const cats = db.categories.filter((c) => c.type === ui.catTab);
   const theme = db.settings.theme;
   return topbar('Ещё', 'Счета, категории и настройки') + `
-    <div class="content lift stack">
+    <div class="content stack">
       <div class="card" id="sync-card" data-sync-slot="card">${Sync.card()}</div>
       <div class="card">
         <div class="section-title"><h2>Счета</h2><button class="btn sm" data-act="new-account">${icon('plus')} Счёт</button></div>
@@ -1746,6 +1746,7 @@ document.addEventListener('change', (e) => {
 });
 
 $('#fab').addEventListener('click', () => txModal());
+$('#nav-add').addEventListener('click', () => txModal());
 
 document.addEventListener('keydown', (e) => {
   if (modal.open || e.ctrlKey || e.metaKey || e.altKey) return;

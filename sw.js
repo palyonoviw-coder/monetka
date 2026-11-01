@@ -1,6 +1,6 @@
 // Offline cache for the app shell: network first (so updates arrive immediately), cache when offline.
-const CACHE = 'monetka-v11';
-const SHELL = ['./', 'index.html', 'styles.css', 'config.js', 'icons.js', 'sync.js', 'app.js', 'icon.svg', 'manifest.webmanifest'];
+const CACHE = 'monetka-v12';
+const SHELL = ['./', 'index.html', 'styles.css', 'config.js', 'icons.js', 'sync.js', 'app.js', 'icon.svg', 'manifest.webmanifest', 'vendor/swiper-bundle.min.js', 'vendor/swiper-bundle.min.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

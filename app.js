@@ -1029,14 +1029,77 @@ function viewMore() {
 
 const VIEWS = { overview: viewOverview, transactions: viewTransactions, budgets: viewPlans, stats: viewStats, more: viewMore };
 
-function render() {
-  document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === ui.view));
-  const y = window.scrollY;
-  $('#main').innerHTML = VIEWS[ui.view]();
-  window.scrollTo(0, y);
+/*
+ * На телефоне разделы лежат рядом в ленте Swiper и листаются свайпом за пальцем;
+ * у каждого раздела своя вертикальная прокрутка. На ПК — один раздел в <main>, как обычно.
+ */
+const PAGES = ['overview', 'transactions', 'budgets', 'stats', 'more'];
+const phone = matchMedia('(max-width: 760px)');
+const stale = new Set();
+let pager = null;
+const pageEl = (v) => $(`.page[data-page="${v}"]`);
+const markNav = () => document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === ui.view));
+
+/** Перерисовывает раздел, если данные менялись с прошлой отрисовки (нужно соседям перед свайпом). */
+function renderPage(v) {
+  if (!v || !stale.has(v)) return;
+  pageEl(v).innerHTML = VIEWS[v]();
+  stale.delete(v);
 }
 
-function go(view) { ui.view = view; window.scrollTo(0, 0); render(); }
+function render() {
+  markNav();
+  if (!pager) {
+    const y = window.scrollY;
+    $('#main').innerHTML = VIEWS[ui.view]();
+    window.scrollTo(0, y);
+    return;
+  }
+  const page = pageEl(ui.view);
+  const y = page.scrollTop;
+  page.innerHTML = VIEWS[ui.view]();
+  page.scrollTop = y;
+  for (const v of PAGES) if (v !== ui.view) stale.add(v);
+  stale.delete(ui.view);
+  const i = PAGES.indexOf(ui.view);
+  if (pager.activeIndex !== i) pager.slideTo(i, 0, false);
+}
+
+function go(view) {
+  ui.view = view;
+  if (pager) pageEl(view).scrollTop = 0;
+  else window.scrollTo(0, 0);
+  render();
+}
+
+function setupPager() {
+  const main = $('#main');
+  if (phone.matches && !pager && window.Swiper) {
+    main.classList.add('paged');
+    main.innerHTML = `<div class="swiper pager"><div class="swiper-wrapper">${PAGES.map((v) =>
+      `<section class="swiper-slide page" data-page="${v}"></section>`).join('')}</div></div>`;
+    PAGES.forEach((v) => stale.add(v));
+    pager = new Swiper(main.firstElementChild, {
+      initialSlide: Math.max(PAGES.indexOf(ui.view), 0),
+      speed: 320,
+      threshold: 6,
+      touchAngle: 35,
+      resistanceRatio: 0.55,
+      longSwipesRatio: 0.3,
+      noSwipingSelector: 'input, select, textarea, .seg.scroll, .cat-grid, .icon-grid, .chips',
+      on: {
+        sliderFirstMove(sw) { renderPage(PAGES[sw.activeIndex - 1]); renderPage(PAGES[sw.activeIndex + 1]); },
+        slideChange(sw) { ui.view = PAGES[sw.activeIndex]; renderPage(ui.view); markNav(); },
+      },
+    });
+  } else if (!phone.matches && pager) {
+    pager.destroy(true, true);
+    pager = null;
+    main.classList.remove('paged');
+  }
+  render();
+}
+phone.addEventListener('change', setupPager);
 
 function applyTheme() {
   const t = db.settings.theme;
@@ -1757,83 +1820,6 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'n' || e.key === 'т' || e.key === '+') { e.preventDefault(); txModal(); }
 });
 
-// Свайп влево/вправо на телефоне: экран едет за пальцем, рядом выезжает соседний раздел нижнего меню.
-// Не срабатывает в открытом окне, в полях ввода и в лентах с горизонтальной прокруткой.
-{
-  const main = $('#main');
-  let sx = 0, sy = 0, st = 0, dx = 0, mode = '', target = null, ghost = null, busy = false;
-  const views = () => [...document.querySelectorAll('.nav-item')].map((b) => b.dataset.view);
-  const neighbor = (dir) => views()[views().indexOf(ui.view) + dir];
-  const move = (x, animate) => {
-    const w = innerWidth;
-    const tr = animate ? 'transform .24s cubic-bezier(.2,.7,.3,1)' : 'none';
-    main.style.transition = tr;
-    main.style.transform = `translateX(${x}px)`;
-    if (ghost) {
-      ghost.style.transition = tr;
-      ghost.style.transform = `translateX(${x + (x < 0 ? w : -w)}px)`;
-    }
-  };
-  const setTarget = (dir) => {
-    const v = neighbor(dir);
-    if (v === target) return;
-    target = v;
-    ghost?.remove();
-    ghost = null;
-    if (!v) return;
-    ghost = document.createElement('div');
-    ghost.className = 'swipe-ghost';
-    ghost.setAttribute('aria-hidden', 'true');
-    ghost.innerHTML = VIEWS[v]();
-    document.body.append(ghost);
-  };
-  const finish = (commit) => {
-    busy = true;
-    const w = innerWidth;
-    move(commit ? (dx < 0 ? -w : w) : 0, true);
-    setTimeout(() => {
-      if (commit) {
-        ui.view = target;
-        window.scrollTo(0, 0);
-        render();
-      }
-      main.style.transition = main.style.transform = '';
-      ghost?.remove();
-      ghost = null; target = null; busy = false;
-    }, 250);
-  };
-
-  main.addEventListener('touchstart', (e) => {
-    mode = '';
-    if (busy || e.touches.length !== 1 || modal.open || innerWidth > 760
-      || e.target.closest('input, select, textarea, .seg.scroll, .cat-grid, .icon-grid, .chips')) { mode = 'off'; return; }
-    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); dx = 0;
-  }, { passive: true });
-
-  main.addEventListener('touchmove', (e) => {
-    if (mode === 'off' || mode === 'v') return;
-    const x = e.touches[0].clientX - sx, y = e.touches[0].clientY - sy;
-    if (!mode) {
-      if (Math.abs(x) < 10 && Math.abs(y) < 10) return;
-      mode = Math.abs(x) > Math.abs(y) * 1.2 ? 'h' : 'v';
-      if (mode === 'v') return;
-    }
-    e.preventDefault();
-    setTarget(x < 0 ? 1 : -1);
-    dx = target ? x : x * 0.25; // у крайних разделов — лёгкое сопротивление
-    move(dx, false);
-  }, { passive: false });
-
-  const end = () => {
-    if (mode !== 'h') { mode = ''; return; }
-    mode = '';
-    const fast = Math.abs(dx) / Math.max(Date.now() - st, 1) > 0.5;
-    finish(Boolean(target) && (Math.abs(dx) > innerWidth * 0.3 || (fast && Math.abs(dx) > 40)));
-  };
-  main.addEventListener('touchend', end);
-  main.addEventListener('touchcancel', end);
-}
-
 /* ============================== Старт ============================== */
 
 document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
@@ -1844,7 +1830,7 @@ try { if (!localStorage.getItem(STORE_KEY)) save(); } catch { /* хранили�
 applyTheme();
 processRecurring();
 checkReminders();
-render();
+setupPager();
 
 setInterval(() => {
   if (checkReminders() && !modal.open && ['overview', 'budgets'].includes(ui.view)) render();
